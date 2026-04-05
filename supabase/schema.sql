@@ -101,6 +101,27 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- ============================================
+-- CHECKLIST_ITEMS TABLE
+-- Planned recurring/expected expense payments
+-- ============================================
+CREATE TABLE IF NOT EXISTS checklist_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+  expected_amount BIGINT CHECK (expected_amount IS NULL OR expected_amount > 0),
+  due_date DATE,
+  month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
+  year INTEGER NOT NULL CHECK (year >= 2000 AND year <= 2100),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid')),
+  linked_transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+  auto_match_keywords TEXT[] NOT NULL DEFAULT '{}',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
@@ -113,17 +134,24 @@ CREATE INDEX IF NOT EXISTS idx_budgets_user_month_year ON budgets(user_id, month
 CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_checklist_items_user_id ON checklist_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_items_user_month_year ON checklist_items(user_id, month, year);
+CREATE INDEX IF NOT EXISTS idx_checklist_items_status ON checklist_items(user_id, status);
 
 -- ============================================
 -- UPDATED_AT TRIGGER FUNCTION
 -- ============================================
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.update_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS trg_profiles_updated_at ON profiles;
 CREATE TRIGGER trg_profiles_updated_at
@@ -148,6 +176,11 @@ CREATE TRIGGER trg_budgets_updated_at
 DROP TRIGGER IF EXISTS trg_investments_updated_at ON investments;
 CREATE TRIGGER trg_investments_updated_at
   BEFORE UPDATE ON investments
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_checklist_items_updated_at ON checklist_items;
+CREATE TRIGGER trg_checklist_items_updated_at
+  BEFORE UPDATE ON checklist_items
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================
@@ -188,6 +221,7 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE checklist_items ENABLE ROW LEVEL SECURITY;
 
 -- Profiles
 DROP POLICY IF EXISTS "profiles_select_own" ON profiles;
@@ -246,3 +280,13 @@ CREATE POLICY "notifications_select_own" ON notifications FOR SELECT USING (auth
 CREATE POLICY "notifications_insert_own" ON notifications FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "notifications_update_own" ON notifications FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "notifications_delete_own" ON notifications FOR DELETE USING (auth.uid() = user_id);
+
+-- Checklist Items
+DROP POLICY IF EXISTS "checklist_items_select_own" ON checklist_items;
+DROP POLICY IF EXISTS "checklist_items_insert_own" ON checklist_items;
+DROP POLICY IF EXISTS "checklist_items_update_own" ON checklist_items;
+DROP POLICY IF EXISTS "checklist_items_delete_own" ON checklist_items;
+CREATE POLICY "checklist_items_select_own" ON checklist_items FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "checklist_items_insert_own" ON checklist_items FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "checklist_items_update_own" ON checklist_items FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "checklist_items_delete_own" ON checklist_items FOR DELETE USING (auth.uid() = user_id);

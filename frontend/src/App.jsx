@@ -15,6 +15,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const Budget = lazy(() => import('./pages/Budget'));
 const Investments = lazy(() => import('./pages/Investments'));
 const Notifications = lazy(() => import('./pages/Notifications'));
+const Checklist = lazy(() => import('./pages/Checklist'));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -96,6 +97,7 @@ function AppRoutes() {
           <Route path="budget" element={<Budget />} />
           <Route path="investments" element={<Investments />} />
           <Route path="notifications" element={<Notifications />} />
+          <Route path="checklist" element={<Checklist />} />
         </Route>
 
         {/* Catch-all redirect */}

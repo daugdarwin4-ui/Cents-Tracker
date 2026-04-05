@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toCents } from '../utils/currency';
+import { runChecklistAutoMatch } from '../utils/checklistMatcher';
 
 /**
  * Hook for managing transactions.
@@ -85,6 +86,8 @@ export function useTransactions(filters = {}) {
       if (!error) {
         setTransactions((prev) => [data, ...prev]);
         setCount((c) => c + 1);
+        // Auto-match against pending checklist items (best-effort, fire-and-forget)
+        runChecklistAutoMatch(user.id, data);
       }
       return { data, error };
     },

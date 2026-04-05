@@ -1,6 +1,61 @@
 const supabase = require('../config/supabase');
 const { toCents } = require('../utils/currency');
 
+/** Normalise text for matching. */
+function normalise(text) {
+  return (text || '').toLowerCase().trim();
+}
+
+/** Returns true if transaction matches a checklist item using flexible rules. */
+function transactionMatchesItem(transaction, item) {
+  if (
+    item.category_id &&
+    transaction.category_id &&
+    item.category_id === transaction.category_id
+  ) {
+    return true;
+  }
+  const noteText = normalise(transaction.note);
+  const titleText = normalise(item.title);
+  if (titleText && noteText && noteText.includes(titleText)) return true;
+  const keywords = Array.isArray(item.auto_match_keywords) ? item.auto_match_keywords : [];
+  if (noteText && keywords.some((kw) => noteText.includes(normalise(kw)))) return true;
+  return false;
+}
+
+/**
+ * Run auto-match for a newly created expense transaction.
+ * Silently ignores errors to prevent disrupting the main flow.
+ */
+async function runAutoMatch(userId, transaction) {
+  if (transaction.type !== 'expense') return;
+  try {
+    const txDate = new Date(transaction.date);
+    const txMonth = txDate.getMonth() + 1;
+    const txYear = txDate.getFullYear();
+
+    const { data: pending } = await supabase
+      .from('checklist_items')
+      .select('id, category_id, title, auto_match_keywords')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .eq('month', txMonth)
+      .eq('year', txYear);
+
+    if (!pending?.length) return;
+    const matched = pending.filter((item) => transactionMatchesItem(transaction, item));
+    if (!matched.length) return;
+
+    await supabase
+      .from('checklist_items')
+      .update({ status: 'paid', linked_transaction_id: transaction.id })
+      .in('id', matched.map((m) => m.id))
+      .eq('user_id', userId);
+  } catch (_) {
+    // Auto-match is best-effort; never block the transaction response
+  }
+}
+
 /**
  * GET /api/transactions
  * Supports query params: type, startDate, endDate, search, sortBy, sortOrder, limit, offset
@@ -81,6 +136,10 @@ exports.create = async (req, res, next) => {
       .single();
 
     if (error) throw error;
+
+    // Fire-and-forget: auto-match against pending checklist items
+    runAutoMatch(req.userId, data);
+
     res.status(201).json({ data });
   } catch (err) {
     next(err);

@@ -8,6 +8,7 @@ import {
   Wallet,
   TrendingUp,
   Bell,
+  ClipboardList,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { to: '/budget', icon: Wallet, label: 'Budget' },
   { to: '/investments', icon: TrendingUp, label: 'Investments' },
   { to: '/notifications', icon: Bell, label: 'Notifications' },
+  { to: '/checklist', icon: ClipboardList, label: 'Checklist' },
 ];
 
 const Sidebar = memo(function Sidebar({ mobileOpen, onMobileClose }) {

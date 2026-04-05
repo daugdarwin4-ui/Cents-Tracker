@@ -10,6 +10,7 @@ const budgetRoutes = require('./src/routes/budgets');
 const investmentRoutes = require('./src/routes/investments');
 const reportRoutes = require('./src/routes/reports');
 const notificationRoutes = require('./src/routes/notifications');
+const checklistRoutes = require('./src/routes/checklists');
 const errorHandler = require('./src/middleware/errorHandler');
 
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api/budgets', budgetRoutes);
 app.use('/api/investments', investmentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/checklists', checklistRoutes);
 
 // ── 404 ───────────────────────────────────────────────────
 app.use((_req, res) => {
