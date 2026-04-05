@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS categories (
   type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'investment', 'savings')),
   color TEXT NOT NULL DEFAULT '#22c55e',
   icon TEXT,
+  parent_id UUID REFERENCES categories(id) ON DELETE SET NULL,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -129,6 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
 CREATE INDEX IF NOT EXISTS idx_transactions_user_date ON transactions(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
+CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories(parent_id);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_month_year ON budgets(user_id, month, year);
 CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id);

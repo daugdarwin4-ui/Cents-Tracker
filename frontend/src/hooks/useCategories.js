@@ -16,7 +16,7 @@ export function useCategories(type = null) {
     try {
       let query = supabase
         .from('categories')
-        .select('*')
+        .select('*, parent:parent_id(id, name, color)')
         .eq('user_id', user.id)
         .order('name');
 
@@ -48,9 +48,10 @@ export function useCategories(type = null) {
           name: payload.name.trim(),
           type: payload.type,
           color: payload.color || '#22c55e',
+          parent_id: payload.parent_id || null,
           is_default: false,
         })
-        .select()
+        .select('*, parent:parent_id(id, name, color)')
         .single();
 
       if (!error) setCategories((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
@@ -63,12 +64,17 @@ export function useCategories(type = null) {
     async (id, payload) => {
       if (!user) return { error: 'Not authenticated' };
 
+      const updates = {};
+      if (payload.name !== undefined) updates.name = payload.name.trim();
+      if (payload.color !== undefined) updates.color = payload.color;
+      if ('parent_id' in payload) updates.parent_id = payload.parent_id || null;
+
       const { data, error } = await supabase
         .from('categories')
-        .update({ name: payload.name?.trim(), color: payload.color })
+        .update(updates)
         .eq('id', id)
         .eq('user_id', user.id)
-        .select()
+        .select('*, parent:parent_id(id, name, color)')
         .single();
 
       if (!error) setCategories((prev) => prev.map((c) => (c.id === id ? data : c)));
@@ -93,5 +99,20 @@ export function useCategories(type = null) {
     [user]
   );
 
-  return { categories, loading, error, refetch: fetchCategories, addCategory, updateCategory, deleteCategory };
+  /** Returns the number of non-deleted transactions using this category. */
+  const getCategoryUsage = useCallback(
+    async (id) => {
+      if (!user) return { count: 0 };
+      const { count, error } = await supabase
+        .from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('category_id', id)
+        .eq('user_id', user.id)
+        .eq('is_deleted', false);
+      return { count: count || 0, error };
+    },
+    [user]
+  );
+
+  return { categories, loading, error, refetch: fetchCategories, addCategory, updateCategory, deleteCategory, getCategoryUsage };
 }
